@@ -3,120 +3,120 @@
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { motion, AnimatePresence } from "framer-motion"
-import { Scan, Upload, Plus, LinkIcon, X, ArrowLeft } from "lucide-react"
+import { Scan, Plus, Loader2, Rocket } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import type { ScanningPhase } from "@/components/scanning-progress"
+
+// TreeNode type matching backend structure
+export interface TreeNode {
+  name: string
+  type: "file" | "directory"
+  status: "ignored" | "pending" | "scanning" | "suspect" | "error" | "critical"
+  path?: string
+  children?: TreeNode[]
+}
+
+export interface ProjectData {
+  owner: string
+  repo: string
+  branch: string
+  tree: TreeNode
+  ignored_tree?: TreeNode  // Separate ignored files folder
+  file_count: number
+  pending_count: number
+  ignored_count: number
+  currentPhase?: ScanningPhase  // Current scanning phase
+}
 
 interface EntryScreenProps {
-  onStartScan: (files: any[]) => void
+  onStartScan: (url: string) => void
 }
+
+const API_BASE_URL = "http://localhost:8000"
 
 export function EntryScreen({ onStartScan }: EntryScreenProps) {
   const [searchValue, setSearchValue] = useState("")
-  const [showModal, setShowModal] = useState(false)
-  const [showUrlInput, setShowUrlInput] = useState(false)
-  const [url, setUrl] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [currentPhase, setCurrentPhase] = useState<string>("")
+  const [showRocketAnimation, setShowRocketAnimation] = useState(false)
+  const [rocketFlashPos, setRocketFlashPos] = useState({ x: 0, y: 0 })
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
 
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return
-
-    const fileStructure: any[] = []
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      const path = file.webkitRelativePath || file.name
-      const pathParts = path.split("/")
-
-      fileStructure.push({
-        name: file.name,
-        path: path,
-        file: file,
-        pathParts: pathParts,
-        content: await file.text(),
-      })
-    }
-
-    onStartScan(fileStructure)
-    setShowModal(false)
-  }
-
-  const handleUrlSubmit = () => {
-    if (!url.trim()) return
-
-    // Create mock file structure from URL
-    const mockFiles = [
-      {
-        name: "index.tsx",
-        path: "src/index.tsx",
-        pathParts: ["src", "index.tsx"],
-        content: "// Fetched from: " + url,
-      },
-      {
-        name: "App.tsx",
-        path: "src/App.tsx",
-        pathParts: ["src", "App.tsx"],
-        content: "// Sample file from repository",
-      },
-      {
-        name: "utils.ts",
-        path: "src/utils/utils.ts",
-        pathParts: ["src", "utils", "utils.ts"],
-        content: "// Utility functions",
-      },
-    ]
-
-    onStartScan(mockFiles)
-    setShowModal(false)
-    setShowUrlInput(false)
-    setUrl("")
+    
+    // File upload not yet supported with SSE streaming
+    setError("Local file upload is not yet supported. Please use a GitHub URL.")
   }
 
   const handleUploadClick = () => {
-    setShowModal(false)
     fileInputRef.current?.click()
   }
 
-  const handleUrlClick = () => {
-    setShowUrlInput(true)
-  }
-
-  const isUrl = (text: string) => {
-    return text.trim().startsWith("http://") || text.trim().startsWith("https://") || text.trim().includes("github.com")
+  const handleUrlSubmit = () => {
+    if (!searchValue.trim()) return
+    
+    // Get button position for flash effect
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect()
+      setRocketFlashPos({
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      })
+    }
+    
+    // Trigger rocket animation
+    setShowRocketAnimation(true)
+    
+    // Delay the actual navigation to let animation play
+    setTimeout(() => {
+      onStartScan(searchValue.trim())
+      setSearchValue("")
+    }, 800)
   }
 
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && searchValue.trim()) {
-      if (isUrl(searchValue)) {
-        // URL ise modal'ı aç ve URL'yi set et
-        setUrl(searchValue.trim())
-        setShowUrlInput(true)
-        setShowModal(true)
-      } else {
-        // URL değilse modal'ı aç
-        setShowModal(true)
-      }
-    }
-  }
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setSearchValue(value)
-    
-    // Eğer URL yazılıyorsa otomatik olarak modal'ı aç
-    if (isUrl(value) && value.trim().length > 10) {
-      setUrl(value.trim())
-      setShowUrlInput(true)
-      setShowModal(true)
+    if (e.key === "Enter" && searchValue.trim() && !isLoading) {
+      handleUrlSubmit()
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
+    <div className="flex min-h-screen items-center justify-center p-4 relative overflow-hidden">
+      {/* Animated gradient glows */}
+      <motion.div
+        animate={{
+          x: [0, 100, -50, 0],
+          y: [0, -100, 50, 0],
+        }}
+        transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute top-0 left-0 w-96 h-96 bg-gradient-to-br from-blue-600/20 to-cyan-500/10 rounded-full blur-3xl pointer-events-none"
+      />
+      <motion.div
+        animate={{
+          x: [0, -80, 100, 0],
+          y: [0, 120, -60, 0],
+        }}
+        transition={{ duration: 24, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        className="absolute bottom-0 right-0 w-96 h-96 bg-gradient-to-tl from-cyan-500/20 to-blue-600/10 rounded-full blur-3xl pointer-events-none"
+      />
+      <motion.div
+        animate={{
+          x: [0, 60, -100, 0],
+          y: [0, 80, 100, 0],
+        }}
+        transition={{ duration: 28, repeat: Infinity, ease: "easeInOut", delay: 4 }}
+        className="absolute top-1/2 left-1/2 w-80 h-80 bg-gradient-to-br from-purple-600/10 to-blue-500/10 rounded-full blur-3xl pointer-events-none -translate-x-1/2 -translate-y-1/2"
+      />
+
+      {/* Content */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
-        className="w-full max-w-2xl space-y-8"
+        className="w-full max-w-2xl space-y-8 relative z-10"
       >
         <div className="text-center space-y-4">
           <motion.div
@@ -136,7 +136,7 @@ export function EntryScreen({ onStartScan }: EntryScreenProps) {
             transition={{ delay: 0.3 }}
             className="text-4xl font-bold tracking-tight text-foreground"
           >
-            Living Tree Code Inspector
+            LLM-QA Test Code Production
           </motion.h1>
 
           <motion.p
@@ -145,7 +145,7 @@ export function EntryScreen({ onStartScan }: EntryScreenProps) {
             transition={{ delay: 0.4 }}
             className="text-lg text-muted-foreground"
           >
-            Upload your project or enter a URL to analyze code
+            Delivering code analysis and test generation for your repositories.
           </motion.p>
         </div>
 
@@ -154,17 +154,31 @@ export function EntryScreen({ onStartScan }: EntryScreenProps) {
             <div className="relative flex-1">
               <Input
                 type="text"
-                placeholder="Enter GitHub URL or search for projects..."
+                placeholder="Enter GitHub URL or repository link..."
                 value={searchValue}
-                onChange={handleSearchChange}
+                onChange={(e) => {
+                  setSearchValue(e.target.value)
+                  setError(null)
+                }}
                 onKeyDown={handleSearchKeyDown}
-                className="h-12 pr-4 bg-card border-border text-white placeholder:text-muted-foreground"
+                disabled={isLoading || showRocketAnimation}
+                className="h-12 pr-4 bg-card border-border text-foreground placeholder:text-muted-foreground"
               />
             </div>
-            <Button onClick={() => setShowModal(true)} size="lg" className="h-12 w-12 p-0">
-              <Plus className="h-5 w-5" />
-            </Button>
           </div>
+
+          {error && (
+            <div className="text-center text-sm text-red-500 bg-red-500/10 rounded-md p-2">
+              {error}
+            </div>
+          )}
+
+          {isLoading && (
+            <div className="text-center text-sm text-primary space-y-2">
+              <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+              <p>{currentPhase || "Starting repository analysis..."}</p>
+            </div>
+          )}
 
           <input
             ref={fileInputRef}
@@ -177,118 +191,106 @@ export function EntryScreen({ onStartScan }: EntryScreenProps) {
             className="hidden"
           />
 
-          <div className="text-center text-sm text-muted-foreground">
-            <p>Click the + button to upload files or enter a repository URL</p>
-          </div>
-        </motion.div>
-      </motion.div>
-
-      <AnimatePresence>
-        {showModal && (
+          {/* Beautiful Start Button */}
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-            onClick={() => {
-              setShowModal(false)
-              setShowUrlInput(false)
-              setUrl("")
-            }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="flex justify-center"
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: "spring", duration: 0.3 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-card border border-border rounded-lg p-6 w-full max-w-md shadow-2xl"
+            <motion.button
+              ref={buttonRef}
+              onClick={handleUrlSubmit}
+              disabled={!searchValue.trim() || isLoading || showRocketAnimation}
+              whileHover={{ scale: searchValue.trim() && !isLoading && !showRocketAnimation ? 1.05 : 1 }}
+              whileTap={{ scale: searchValue.trim() && !isLoading && !showRocketAnimation ? 0.98 : 1 }}
+              className="h-10 px-8 rounded-lg font-semibold text-white relative overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap"
             >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-foreground">Add Project</h2>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={() => {
-                    setShowModal(false)
-                    setShowUrlInput(false)
-                    setUrl("")
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+              {/* Gradient background */}
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-500 group-hover:from-blue-500 group-hover:via-cyan-400 group-hover:to-blue-400 transition-all duration-300" />
+              
+              {/* Shine effect */}
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
               </div>
 
-              {!showUrlInput ? (
-                <div className="space-y-3">
-                  <Button
-                    onClick={handleUploadClick}
-                    className="w-full h-16 text-base justify-start gap-3 bg-transparent"
-                    variant="outline"
-                  >
-                    <div className="rounded-full bg-primary/10 p-2">
-                      <Upload className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="text-left">
-                      <div className="font-medium">Upload Files</div>
-                      <div className="text-xs text-muted-foreground">Select a folder from your computer</div>
-                    </div>
-                  </Button>
+              {/* Glow effect */}
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-cyan-500 rounded-lg blur opacity-0 group-hover:opacity-40 transition-opacity duration-300 -z-10" />
 
-                  <Button
-                    onClick={handleUrlClick}
-                    className="w-full h-16 text-base justify-start gap-3 bg-transparent"
-                    variant="outline"
-                  >
-                    <div className="rounded-full bg-primary/10 p-2">
-                      <LinkIcon className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="text-left">
-                      <div className="font-medium">Enter URL</div>
-                      <div className="text-xs text-muted-foreground">Import from GitHub or repository</div>
-                    </div>
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <Button
-                    onClick={() => {
-                      setShowUrlInput(false)
-                      setUrl("")
-                    }}
-                    variant="ghost"
-                    size="sm"
-                    className="mb-2 text-white hover:text-white"
-                  >
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Back
-                  </Button>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">Repository URL</label>
-                    <Input
-                      type="url"
-                      placeholder="https://github.com/username/repo"
-                      value={url}
-                      onChange={(e) => setUrl(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && url.trim()) {
-                          handleUrlSubmit()
-                        }
-                      }}
-                      className="h-10 text-white placeholder:text-muted-foreground bg-card border-border"
-                      autoFocus
-                    />
-                  </div>
-                  <Button onClick={handleUrlSubmit} className="w-full" disabled={!url.trim()}>
-                    Import
-                  </Button>
-                </div>
-              )}
-            </motion.div>
+              {/* Content */}
+              <div className="relative flex items-center justify-center gap-2">
+                <span className="text-sm font-bold tracking-wide">Start Analysis</span>
+                <motion.div
+                  animate={showRocketAnimation ? { x: 400, y: -400, opacity: 0, rotate: 45 } : { x: 0, y: 0, opacity: 1, rotate: 0 }}
+                  transition={{ duration: 0.8, ease: "easeIn" }}
+                >
+                  <Rocket className="h-4 w-4" />
+                </motion.div>
+              </div>
+            </motion.button>
           </motion.div>
-        )}
-      </AnimatePresence>
+
+          <div className="text-center text-sm text-muted-foreground">
+            <p>Enter a GitHub repository URL and either press Enter or click "Start Analysis" to begin</p>
+          </div>
+        </motion.div>
+
+        {/* Rocket trail particles */}
+        <AnimatePresence>
+          {showRocketAnimation && (
+            <>
+              {/* Bright glowing flash burst */}
+              <motion.div
+                initial={{ scale: 0, opacity: 1 }}
+                animate={{ scale: 3, opacity: 0 }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+                style={{
+                  position: "fixed",
+                  left: rocketFlashPos.x,
+                  top: rocketFlashPos.y,
+                  transform: "translate(-50%, -50%)",
+                  pointerEvents: "none",
+                  zIndex: 40,
+                }}
+                className="w-24 h-24 bg-gradient-to-r from-cyan-300 via-blue-400 to-cyan-300 rounded-full blur-xl"
+              />
+
+              {/* Secondary glow ring */}
+              <motion.div
+                initial={{ scale: 0, opacity: 0.8 }}
+                animate={{ scale: 4, opacity: 0 }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+                style={{
+                  position: "fixed",
+                  left: rocketFlashPos.x,
+                  top: rocketFlashPos.y,
+                  transform: "translate(-50%, -50%)",
+                  pointerEvents: "none",
+                  zIndex: 39,
+                }}
+                className="w-32 h-32 border-2 border-cyan-400/50 rounded-full blur-lg"
+              />
+
+              {/* Flying rocket particles */}
+              {[...Array(5)].map((_, i) => (
+                <motion.div
+                  key={`particle-${i}`}
+                  initial={{ x: rocketFlashPos.x, y: rocketFlashPos.y, opacity: 1, scale: 1 }}
+                  animate={{ x: rocketFlashPos.x + 400 + Math.random() * 100, y: rocketFlashPos.y - 400 - Math.random() * 100, opacity: 0, scale: 0 }}
+                  transition={{ duration: 0.8, delay: i * 0.05, ease: "easeIn" }}
+                  className="fixed pointer-events-none z-38"
+                  style={{
+                    left: 0,
+                    top: 0,
+                  }}
+                >
+                  <div className="w-2 h-2 bg-cyan-400 rounded-full blur-sm" />
+                </motion.div>
+              ))}
+            </>
+          )}
+        </AnimatePresence>
+      </motion.div>
     </div>
   )
 }

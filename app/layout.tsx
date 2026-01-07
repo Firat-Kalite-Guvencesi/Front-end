@@ -8,7 +8,7 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Living Tree Code Inspector",
+  title: "LLM-QA: Quality Analysis and Test Code Production",
   description: "Real-time repository scanner with intelligent code analysis",
   generator: "v0.app",
   icons: {

@@ -6,17 +6,17 @@ import { ScannerScreen } from "@/components/scanner-screen"
 import { AnimatePresence, motion } from "framer-motion"
 
 export default function Page() {
-  const [uploadedFiles, setUploadedFiles] = useState<any[]>([])
+  const [githubUrl, setGithubUrl] = useState<string | null>(null)
   const [isScanning, setIsScanning] = useState(false)
 
-  const handleStartScan = (files: any[]) => {
-    setUploadedFiles(files)
+  const handleStartScan = (url: string) => {
+    setGithubUrl(url)
     setIsScanning(true)
   }
 
   const handleBack = () => {
     setIsScanning(false)
-    setUploadedFiles([])
+    setGithubUrl(null)
   }
 
   return (
@@ -38,7 +38,7 @@ export default function Page() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
           >
-            <ScannerScreen uploadedFiles={uploadedFiles} onBack={handleBack} />
+            {githubUrl && <ScannerScreen githubUrl={githubUrl} onBack={handleBack} />}
           </motion.div>
         )}
       </AnimatePresence>
